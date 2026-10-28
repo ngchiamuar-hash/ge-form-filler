@@ -9,7 +9,7 @@
 </head>
 <body>
 <header>
-  <div class="brand">GE Form Filler <span class="local">Your data stays on this computer</span></div>
+  <div class="brand">GE Form Filler <span class="local">Your data stays on this device</span></div>
   <nav>
     <button class="tab active" data-tab="fill">Fill a form</button>
     <button class="tab" data-tab="log">Run log</button>
@@ -20,7 +20,7 @@
 <main>
   <!-- ───────── FILL ───────── -->
   <section id="tab-fill">
-    <div class="card">
+    <div class="card" id="folderCard">
       <h2>Your forms folder</h2>
       <p class="hint">Choose the <b>EPARNER FORM</b> folder on this computer. The forms are read here in your browser — nothing is uploaded.</p>
       <div class="actions">
@@ -37,7 +37,7 @@
         <label>Category<select id="categorySelect"><option value="">— Choose a category —</option></select></label>
         <label>Form<select id="formSelect" disabled><option value="">— Choose a category first —</option></select></label>
       </div>
-      <p class="hint" id="formHint">★ = fully set up (fills everything). Other forms get a basic fill: Proposal No., Policy No., customer name and NRIC.</p>
+      <p class="hint" id="formHint">★ = fully set up. For every other form, the app finds its questions so you can tick, type or upload a screenshot.</p>
     </div>
 
     <div id="afterForm" class="hidden">

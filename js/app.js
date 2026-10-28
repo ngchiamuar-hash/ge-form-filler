@@ -632,8 +632,27 @@ $('#pickFolder').onclick = async () => {
 $('#folderInput').onchange = e => useFolder(fromInput(e.target.files));
 window.geffUseFiles = files => useFolder({ name: 'EPARNER FORM', files }); // used by automated tests
 
+// Built-in blank forms published with the app (forms/index.json): ready on any device, phone included
+async function loadBuiltInForms() {
+  try {
+    const r = await fetch('forms/index.json', { cache: 'no-cache' });
+    if (!r.ok) return false;
+    const list = await r.json();
+    const url = p => 'forms/' + p.split('/').map(encodeURIComponent).join('/');
+    const files = list.map(p => ({ path: p, file: { arrayBuffer: async () => {
+      const res = await fetch(url(p));
+      if (!res.ok) throw new Error('Could not download this form. Please check your internet connection.');
+      return res.arrayBuffer();
+    } } }));
+    await useFolder({ name: 'GE forms', files });
+    $('#folderCard').classList.add('hidden');
+    return true;
+  } catch { return false; }
+}
+
 (async () => {
-  if (canRemember) {
+  if (await loadBuiltInForms()) { /* forms ready — no folder needed */ }
+  else if (canRemember) {
     const h = await savedHandle();
     if (h) {
       $('#reopenFolder').textContent = `Open my forms folder (${h.name})`;
