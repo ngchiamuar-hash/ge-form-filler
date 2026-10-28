@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GE Form Filler</title>
+<meta name="description" content="Fills Great Eastern ePartner forms from screenshots. Runs in your browser; customer details never leave your computer.">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <div class="brand">GE Form Filler <span class="local">Your data stays on this computer</span></div>
+  <nav>
+    <button class="tab active" data-tab="fill">Fill a form</button>
+    <button class="tab" data-tab="log">Run log</button>
+    <button class="tab" data-tab="settings">Settings</button>
+  </nav>
+</header>
+
+<main>
+  <!-- ───────── FILL ───────── -->
+  <section id="tab-fill">
+    <div class="card">
+      <h2>Your forms folder</h2>
+      <p class="hint">Choose the <b>EPARNER FORM</b> folder on this computer. The forms are read here in your browser — nothing is uploaded.</p>
+      <div class="actions">
+        <button id="reopenFolder" class="hidden">Open my forms folder</button>
+        <button id="pickFolder" class="secondary">Choose EPARNER FORM folder</button>
+        <input type="file" id="folderInput" webkitdirectory multiple hidden>
+        <span id="folderMsg" class="msg"></span>
+      </div>
+    </div>
+
+    <div class="card hidden" id="formStep">
+      <h2><span class="step">1</span> Which form?</h2>
+      <div class="grid2">
+        <label>Category<select id="categorySelect"><option value="">— Choose a category —</option></select></label>
+        <label>Form<select id="formSelect" disabled><option value="">— Choose a category first —</option></select></label>
+      </div>
+      <p class="hint" id="formHint">★ = fully set up (fills everything). Other forms get a basic fill: Proposal No., Policy No., customer name and NRIC.</p>
+    </div>
+
+    <div id="afterForm" class="hidden">
+      <div class="card">
+        <h2><span class="step">2</span> Customer <button class="link right" id="newCustomer">Start new customer</button></h2>
+        <div class="drop" id="clientDrop" tabindex="0">
+          <b>Upload customer info</b>
+          <span>Click to choose a screenshot or photo, or press <kbd>Ctrl</kbd> + <kbd>V</kbd> after taking an ePartner screenshot (Win + Shift + S).<br>You can add more than one, e.g. the Policy Detail page and the address page.</span>
+        </div>
+        <div class="readout" id="clientRead"></div>
+        <div id="clientFields"></div>
+        <div class="grid3">
+          <label>Proposal No.<input data-k="policy.proposalNo" maxlength="10" id="proposalNo"></label>
+          <label>Policy No.<input data-k="policy.policyNo" maxlength="10" id="policyNo"></label>
+          <label>Signing date <small>(blank = client writes it)</small>
+            <span class="inline"><input type="date" data-k="signDate" id="signDate"><button class="secondary small" id="today">Today</button></span></label>
+        </div>
+        <div id="ownerBox" class="hidden">
+          <label class="check"><input type="checkbox" id="diffOwner"> Policyowner / Proposer is a different person</label>
+          <div id="proposerBox" class="person hidden"></div>
+        </div>
+      </div>
+
+      <div class="card" id="formSection"></div>
+
+      <div class="card" id="witnessCard">
+        <h2><span class="step">4</span> Witness</h2>
+        <div id="witnessChoice"></div>
+        <p class="hint" id="witnessNote"></p>
+      </div>
+
+      <div class="card">
+        <button id="generate" class="big">Fill the form</button>
+        <span id="genMsg" class="msg"></span>
+      </div>
+      <div id="review" class="hidden"></div>
+    </div>
+  </section>
+
+  <!-- ───────── LOG ───────── -->
+  <section id="tab-log" class="hidden">
+    <div class="card">
+      <h2>Run log</h2>
+      <p class="hint">Every fill, approval and send-back on this computer. Customers are shown as initials and the last 4 digits of their ID.
+        <button class="link" id="downloadLog">Download as Excel (CSV)</button></p>
+      <div class="tablewrap"><table id="logTable"><thead><tr><th>Time</th><th>Customer</th><th>Form</th><th>Blank</th><th>Warn</th><th>Status</th><th>Note</th></tr></thead><tbody></tbody></table></div>
+    </div>
+  </section>
+
+  <!-- ───────── SETTINGS ───────── -->
+  <section id="tab-settings" class="hidden">
+    <div class="card">
+      <h2>Your agent details <small>Used as the witness on every form</small></h2>
+      <div class="grid3">
+        <label>Name (as per NRIC)<input data-s="agent.name"></label>
+        <label>NRIC No.<input data-s="agent.nric"></label>
+        <label>IAC No.<input data-s="agent.iac" maxlength="7"></label>
+      </div>
+      <label>Witness address line 1<input data-s="agent.address1"></label>
+      <label>Witness address line 2<input data-s="agent.address2"></label>
+      <label>Witness address line 3<input data-s="agent.address3"></label>
+      <p class="hint">Saved in this browser only.</p>
+      <div class="actions"><button id="saveSettings">Save settings</button><span id="settingsMsg" class="msg"></span></div>
+    </div>
+  </section>
+</main>
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
