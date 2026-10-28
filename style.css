@@ -122,3 +122,12 @@ details.qpage summary small { font-weight: 400; color: var(--muted); }
 /* Installed on a phone: keep the header clear of the notch / status bar */
 header { padding-top: calc(10px + env(safe-area-inset-top)); padding-left: calc(24px + env(safe-area-inset-left)); padding-right: calc(24px + env(safe-area-inset-right)); }
 @media (max-width: 760px) { header { padding-left: calc(16px + env(safe-area-inset-left)); padding-right: calc(16px + env(safe-area-inset-right)); } }
+/* Passcode screen */
+body.locked header nav, body.locked main { display: none; }
+.gate { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 16px; background: var(--bg); }
+.gatebox { width: 100%; max-width: 320px; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 28px 24px; text-align: center; }
+.gatebox img { border-radius: 16px; }
+.gatebox h2 { justify-content: center; margin: 12px 0 16px; }
+.gatebox label { text-align: left; }
+.gatebox input { font-size: 22px; letter-spacing: 6px; text-align: center; }
+.gatebox button { width: 100%; font-size: 16px; padding: 10px; }
