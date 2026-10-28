@@ -237,6 +237,7 @@ makeDrop($('#clientDrop'), r => {
   const c = collect($('#clientFields'), 'k', null), need = needs().client;
   r.missing = Object.entries(NEED_NAMES).filter(([k]) => need.includes(k) && !(k === 'address' ? c.address?.line1 : c[k])).map(([, v]) => v);
   showRead($('#clientRead'), r, n, true);
+  prefillAuto();
   showCurrent();
 });
 $('#newCustomer').onclick = () => {
@@ -329,16 +330,17 @@ function buildFormSection() {
     sec.addEventListener('change', sync); sync();
     $('#allNo').onclick = e => { e.preventDefault(); $$('.yn input[value="No"]', sec).forEach(r => { r.checked = true; }); sync(); };
   } else {
-    // Any other form: basic fill only
+    // Any other form: the questions are found on the form automatically
     sec.innerHTML = `<h2><span class="step">3</span> ${esc(formInfo?.title || 'Form')}</h2>
-      <p class="hint warnline">This form is not fully set up yet. The app fills <b>Proposal No., Policy No., customer name and NRIC</b> where it can find their boxes.
-      Everything else stays blank for you to complete by hand. The review screen tells you exactly what was filled — please check each one.</p>`;
-    return;
+      <p class="hint" id="autoNote">Reading the form to find its questions…</p>
+      <div id="autoFields"></div>`;
+    buildAutoFields();
   }
   // Two ways to give the answers: fill in here, or upload a screenshot/photo and check what was read
   const tip = { nomination: 'e.g. the ePartner nominee page — all nominees are filled at once',
     amendment: 'e.g. the customer\'s change request — the NEW payment mode, method, premium or address',
-    gastric: 'e.g. the doctor\'s letter or medical report — the condition is picked up; tick Yes/No yourself' }[formId];
+    gastric: 'e.g. the doctor\'s letter or medical report — the condition is picked up; tick Yes/No yourself' }[formId]
+    || 'e.g. the customer\'s answers or an ePartner page — answers are matched to the questions by their wording';
   sec.querySelector('h2').insertAdjacentHTML('afterend', `<div class="modepick">${chips('How do you want to give the answers?', '_mode', [['fill', '✍ Fill in here'], ['upload', '📷 Upload screenshot']])}</div>
     <div class="drop hidden" id="sectionDrop" tabindex="0"><b>Upload screenshot for this form</b><span>${esc(tip)}</span></div>
     <div class="readout" id="sectionRead"></div>`);
@@ -382,8 +384,94 @@ function sectionRead(r) {
       if (r.conditions.length > 1) n += applyRead($('#formSection'), { gastric: { q1: r.conditions.slice(1).join(', ') } });
     }
     notes.push('Yes/No answers are not ticked from a photo — please tick them with the client.');
+  } else if (!NEEDS[formId]) {
+    n = matchAnswers(r.text || '');
+    notes.push('Answers were matched by the question wording — please check each yellow one.');
   }
   showRead(box, { ...r, missing: [], notes }, n, true);
+}
+
+// ── Forms not set up by hand: questions found on the form ──
+let autoItems = [];
+async function buildAutoFields() {
+  const myForm = formId, box = $('#autoFields');
+  try {
+    const { items } = await api('/api/form-fields', { formId });
+    if (formId !== myForm) return;
+    autoItems = items;
+    const pages = [...new Set(items.map(i => i.page))];
+    const count = items.reduce((n, i) => n + (i.type === 'ticks' ? i.items.length : 1), 0);
+    const itemHtml = i => i.type === 'ticks'
+      ? `<div class="field"><span class="flabel">${esc(i.heading || 'Tick where it applies')}</span><div class="chips">${i.items.map(t =>
+          `<label class="chip-opt"><input type="checkbox" data-q="${t.id}"><span>${esc(t.label)}</span></label>`).join('')}</div></div>`
+      : `<label>${esc(i.label)}${i.type === 'cells' ? ` <small>(${i.cells.length} boxes)</small>` : ''}<input data-q="${i.id}"></label>`;
+    box.innerHTML = pages.map((p, k) => {
+      const list = items.filter(i => i.page === p);
+      return `<details class="qpage" ${k < 2 || count <= 60 ? 'open' : ''}><summary>Page ${p + 1} <small>(${list.length} item${list.length > 1 ? 's' : ''})</small></summary>${list.map(itemHtml).join('')}</details>`;
+    }).join('') || '<p class="hint">No answer boxes were found on this form.</p>';
+    $('#autoNote').textContent = count
+      ? `Found ${count} questions and answer spaces on this form. Tick or type only what applies, or upload a screenshot of the answers. Blank ones stay blank.`
+      : 'This form has no answer spaces the app can recognise.';
+    prefillAuto();
+  } catch (e) { if (formId === myForm) $('#autoNote').textContent = 'Could not read this form: ' + e.message; }
+}
+// Put the customer's details into matching questions (only empty ones; yellow = please check)
+function prefillAuto() {
+  if (NEEDS[formId] || !autoItems.length) return;
+  const c = collect($('#clientFields'), 'k', null);
+  const d = c.dob ? c.dob.split('-').reverse().join('/') : '';
+  const rules = [
+    [/proposal\s*no/i, $('#proposalNo').value, true], [/policy\s*no/i, $('#policyNo').value, true],
+    [/^(\W*\d*\)?\s*)?(full\s*name|name\s+of\s+(the\s+)?(life\s+(to\s+be\s+)?assured|policy\s*owner|proposer|insured|assured|claimant|customer)|name\s+as\s+per)/i, (c.fullName || '').toUpperCase(), false],
+    [/^(?!.*\bold\b)(?!.*policy).*\b(nric|i\/c|ic\s*no|mykad)\b/i, String(c.idNo || '').replace(/\D/g, '').length === 12 ? String(c.idNo).replace(/\D/g, '') : c.idNo, false],
+    [/date of birth|\bdob\b/i, d, false],
+    [/^date\b(?!.*(birth|admi|disch|surgery|join|incid|death))/i, $('#signDate').value ? $('#signDate').value.split('-').reverse().join('/') : '', true],
+  ];
+  // name, NRIC and date of birth go only in the first matching place (later ones belong to other people)
+  const used = new Set($$('#autoFields [data-rule]').map(el => el.dataset.rule));
+  for (const i of autoItems) {
+    if (i.type === 'ticks') continue;
+    const input = $(`#autoFields [data-q="${i.id}"]`);
+    if (!input || input.value) continue;
+    // header items (policy no., date) once per page; personal details once per form
+    const key = (k, every) => every ? k + '|' + i.page : String(k);
+    const r = rules.findIndex(([re, v, every], k) => v && re.test(i.label) && !used.has(key(k, every)));
+    if (r < 0) continue;
+    input.value = rules[r][1]; input.classList.add('auto'); input.dataset.rule = key(r, rules[r][2]); used.add(key(r, rules[r][2]));
+  }
+}
+// Match an uploaded screenshot's text to the questions: "Question label: answer" → answer; option text present → tick
+function matchAnswers(text) {
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+  const norm = s => s.toLowerCase().replace(/[^a-z0-9%]+/g, ' ').trim();
+  const loose = s => new RegExp(norm(s).split(' ').map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('[^a-z0-9%]+'), 'i');
+  let n = 0;
+  for (const i of autoItems) {
+    if (i.type === 'ticks') {
+      for (const t of i.items) {
+        const key = norm(t.label).split(' ').slice(0, 5).join(' ');
+        if (key.length < 4 || !lines.some(l => norm(l).includes(key))) continue;
+        const cb = $(`#autoFields [data-q="${t.id}"]`);
+        if (cb && !cb.checked) { cb.checked = true; cb.closest('.chips').classList.add('auto'); n++; }
+      }
+      continue;
+    }
+    const [rawKey, col] = i.label.split(' — ');
+    const key = rawKey.replace(/^\W*(\(?[a-z0-9]{1,3}[).]\s*)+/i, '');   // drop numbering like "b)", "2.", "(iv)"
+    if (norm(key).length < 3) continue;
+    const re = loose(key);
+    for (const l of lines) {
+      const m = l.match(re);
+      if (!m) continue;
+      let v = l.slice(m.index + m[0].length).replace(/^[\s:：=\-–]+/, '').trim();
+      if (col && /percent|%|amount|rm/i.test(col)) v = (v.match(/[\d.,]+\s*%?/) || [''])[0].replace(/\s/g, '');
+      if (!v) continue;
+      const input = $(`#autoFields [data-q="${i.id}"]`);
+      if (input) { input.value = v; input.classList.add('auto'); n++; }
+      break;
+    }
+  }
+  return n;
 }
 function showCurrent() {
   const c = lastRead?.current, h = $('#currentHint');
@@ -419,6 +507,10 @@ function collectCase() {
     for (const k of ['q6rows', 'q8rows']) g[k] = Object.values(g[k] || {});
     g.q1 = [g.q1pick, g.q1].filter(Boolean).join('. ');
     caseData.gastric = g;
+  }
+  if (!NEEDS[formId]) {
+    prefillAuto();
+    caseData.answers = Object.fromEntries($$('#autoFields [data-q]').map(el => [el.dataset.q, el.type === 'checkbox' ? el.checked : el.value.trim()]));
   }
   return caseData;
 }

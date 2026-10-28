@@ -2,6 +2,8 @@
 // Settings and the run log are kept in this browser (localStorage); customer details are never stored or sent anywhere.
 import { listForms, getForm, fillForm } from './engine.js';
 import { readScreenshot } from './screenshot.js';
+import { analyse } from './pdfshapes.js';
+import { detectFields, groupForDisplay } from './fields.js';
 import { mask, isBlank } from './util.js';
 
 const SETTINGS_KEY = 'geff.settings', LOG_KEY = 'geff.log';
@@ -27,6 +29,15 @@ const routes = {
   'POST /api/settings': body => { const s = { ...routes['GET /api/settings'](), ...body }; write(SETTINGS_KEY, s); return s; },
   'GET /api/forms': () => listForms(files),
   'GET /api/log': () => read(LOG_KEY, []).slice().reverse(),
+
+  // The questions found on a form that is not set up by hand (tick boxes, answer boxes, lines)
+  'POST /api/form-fields': async ({ formId }) => {
+    const info = listForms(files).find(f => f.id === formId);
+    const src = info && files.find(f => f.path === info.file);
+    if (!src) throw new Error('Form not found in your forms folder.');
+    const pages = await analyse(new Uint8Array(await src.file.arrayBuffer()));
+    return { pages: pages.length, items: groupForDisplay(detectFields(pages), pages) };
+  },
 
   'POST /api/read-screenshot': async body => {
     const blob = await (await fetch(body.image)).blob();

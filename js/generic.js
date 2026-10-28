@@ -3,6 +3,7 @@
 // Anything it cannot place safely is left blank and reported.
 import { up, digits, isBlank } from './util.js';
 import { analyse } from './pdfshapes.js';
+import { detectFields } from './fields.js';
 
 const TARGETS = [
   { key: 'proposalNo', label: 'Proposal No.', re: /proposal\s*(no|number)\b/i, every: true, value: d => up(d.policy.proposalNo) },
@@ -55,7 +56,47 @@ function findLine(pg, lab) {
 // Something already printed right after the label (e.g. a pre-filled value or another label) means it is not an empty answer space
 const occupied = (pg, lab, x1) => pg.texts.some(t => t !== lab && Math.abs(t.y - lab.y) < 3 && t.x > lab.x + lab.w + 2 && t.x < x1 && /[a-z0-9]/i.test(t.str));
 
+// Write one answer into a detected field. Returns false if it does not fit.
+function writeAnswer(o, f, value) {
+  if (f.type === 'tick') { if (value) o.tick(f.page, f); return true; }
+  const v = String(value ?? '').trim();
+  if (!v) return true;
+  if (f.type === 'cells') {
+    const n = f.cells.length;
+    let chars = up(v);
+    let start = 0;
+    const isAmount = /^[\d,.\s]+$/.test(v) && /rm|amount|premium|total|income|top-?up|unit|sum/i.test(f.label);
+    if (f.groups.length) chars = chars.replace(/[^A-Z0-9]/g, '');               // separators are printed on the form
+    if (isAmount) {
+      const [int, dec] = v.replace(/[,\s]/g, '').split('.');
+      const lastGroup = f.groups.at(-1);
+      if (dec !== undefined && lastGroup && n - lastGroup <= 2) {                 // RM [ ][ ][ ][ ][ ] . [ ][ ]
+        chars = int.padStart(lastGroup, ' ') + dec.padEnd(n - lastGroup, '0').slice(0, n - lastGroup);
+        if (int.length > lastGroup) return false;
+      } else { chars = (int + (dec ? dec : '')).replace(/\D/g, ''); start = n - chars.length; }
+    }
+    if (start < 0 || chars.length > n) return false;
+    [...chars].forEach((ch, i) => { const c = f.cells[start + i]; if (ch !== ' ') o.cells(f.page, ch, { x: c.x0, y: f.y, h: f.h, cw: c.x1 - c.x0, n: 1 }); });
+    return true;
+  }
+  return o.text(f.page, v, { x: f.x, y: f.y, maxW: f.maxW, size: 9 });
+}
+
 async function basicFill({ pdf, o, fonts, data, issues, bytes }) {
+  // Answers given in the app for the questions found on this form
+  const answers = data.case.answers;
+  if (answers && Object.keys(answers).length) {
+    const fields = detectFields(await analyse(bytes));
+    let n = 0;
+    for (const f of fields) {
+      const v = answers[f.id];
+      if (v === undefined || v === '' || v === false) continue;
+      if (writeAnswer(o, f, v)) n++;
+      else issues.warn(f.label, `"${f.label}" (page ${f.page + 1}): "${v}" does not fit in the space — left blank, write by hand.`);
+    }
+    issues.info('Answers', `${n} answer(s) filled in. This form was set up automatically — please check each one is in the right place.`);
+    return;
+  }
   issues.info('Basic fill', 'This form is not fully set up yet. Only Proposal No., Policy No., customer name and NRIC are filled where the app can find their boxes — please check them and complete the rest by hand.');
   const filled = {}, tooLong = {};
   const fields = pdf.getForm().getFields().filter(f => f.constructor.name === 'PDFTextField');
@@ -108,4 +149,4 @@ async function basicFill({ pdf, o, fonts, data, issues, bytes }) {
   if (fields.length) pdf.getForm().updateFieldAppearances(fonts.reg);
 }
 
-export { basicFill };
+export { basicFill, TARGETS };

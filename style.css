@@ -116,3 +116,6 @@ h2 .right { margin-left: auto; font-weight: 400; }
 .modepick { background: #f6f7f9; border-radius: 8px; padding: 6px 12px; margin-bottom: 12px; }
 .grid2 { display: grid; grid-template-columns: 1fr 2fr; gap: 0 14px; }
 @media (max-width: 760px) { .grid2 { grid-template-columns: 1fr; } }
+details.qpage { border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; margin-bottom: 10px; }
+details.qpage summary { cursor: pointer; font-weight: 600; margin-bottom: 6px; }
+details.qpage summary small { font-weight: 400; color: var(--muted); }
