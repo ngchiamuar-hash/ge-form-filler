@@ -119,3 +119,6 @@ h2 .right { margin-left: auto; font-weight: 400; }
 details.qpage { border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; margin-bottom: 10px; }
 details.qpage summary { cursor: pointer; font-weight: 600; margin-bottom: 6px; }
 details.qpage summary small { font-weight: 400; color: var(--muted); }
+/* Installed on a phone: keep the header clear of the notch / status bar */
+header { padding-top: calc(10px + env(safe-area-inset-top)); padding-left: calc(24px + env(safe-area-inset-left)); padding-right: calc(24px + env(safe-area-inset-right)); }
+@media (max-width: 760px) { header { padding-left: calc(16px + env(safe-area-inset-left)); padding-right: calc(16px + env(safe-area-inset-right)); } }
